@@ -10,17 +10,22 @@
 ###
 import time
 import serial
+from .mlog import logger
+from collections import defaultdict
 
 ML_HEADER = b'\xca\xfe'
 ML_TAIL = b'\xbe\xef'
 # Device ID
+VERSION_DEVICE = b'\x00'
 MEM_DEVICE = b'\x01'
+CAN_DEVICE_OFFSET = b'\x02'
 CANA_DEVICE = b'\x02'
 CANB_DEVICE = b'\x03'
+LIN_DEVICE_OFFSET = b'\x04'
 LINA_DEVICE = b'\x04'
 LINB_DEVICE = b'\x05'
 POSITIVE_ACK = b'OK'
-TIMEOUT_COUNT = 2000
+TIMEOUT_COUNT = 500
 
 
 class MLink(object):
@@ -29,7 +34,7 @@ class MLink(object):
         if not self.dry:
             self.ser = serial.Serial(com_port, baudrate)
         self.buffer = b''
-        self.frames = []
+        self.frames = defaultdict(list)
         self.timeout = 0
 
     def send(self, data):
@@ -41,17 +46,33 @@ class MLink(object):
         if not self.dry:
             self.ser.write(frame)
 
-    def positive_ack(self):
+    def version(self):
+        self.send(b'\x00\x00\x00\x00')
+        version = self.recv(VERSION_DEVICE)[1:].decode('utf-8')
+        logger.info(f"MLink version: {version}")
+        return version
+
+    def positive_ack(self, dev):
         if self.dry:
             return True
-        return POSITIVE_ACK == self.recv()
+        return POSITIVE_ACK == self.recv(dev)
 
-    def recv(self):
+    def check(self, dev):
+        if self.dry:
+            return True
+        time.sleep(0.01)
+        self.search()
+        if len(self.frames[dev]) > 0:
+            return self.frames[dev].pop(0)
+        else:
+            return None
+
+    def recv(self, dev):
         if self.dry:
             return b'OK'
         while True:
-            if len(self.frames) > 0:
-                return self.frames.pop(0)
+            if len(self.frames[dev]) > 0:
+                return self.frames[dev].pop(0)
             else:
                 self.search()
                 time.sleep(0.01)
@@ -80,6 +101,6 @@ class MLink(object):
                     chk = int.from_bytes(frame[-4:-2], 'little')
                     if chk == sum([x for x in frame[4:-4]]):
                         # Frame is valid
-                        self.frames.append(frame[4:-4])
+                        self.frames[frame[4].to_bytes(1, 'little')].append(frame[4:-4])
                     else:
                         print("Checksum error")

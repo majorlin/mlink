@@ -28,13 +28,13 @@ class NvmCmd(object):
     def memory_read(self, addr, size):
         data = MEM_DEVICE + self.MEM_READ + addr.to_bytes(4, 'little') + size.to_bytes(4, 'little')
         self.mlink.send(data)
-        return self.mlink.recv()
+        return self.mlink.recv(MEM_DEVICE)
 
     def memory_erase(self, addr, size):
         logger.info('Erasing 0x{:08X} - 0x{:08X}'.format(addr, addr + size))
         data = MEM_DEVICE + self.MEM_ERASE + addr.to_bytes(4, 'little') + size.to_bytes(4, 'little')
         self.mlink.send(data)
-        return self.mlink.positive_ack()
+        return self.mlink.positive_ack(MEM_DEVICE)
 
     def memory_upload(self, addr, size):
         data = MEM_DEVICE + self.MEM_UPLOAD + addr.to_bytes(4, 'little') + size.to_bytes(4, 'little')
@@ -56,7 +56,7 @@ class NvmCmd(object):
         logger.info('Writing 0x{:08X} - 0x{:08X}'.format(addr, addr + len(data)))
         data = MEM_DEVICE + self.MEM_WRITE + addr.to_bytes(4, 'little') + len(data).to_bytes(4, 'little') + data
         self.mlink.send(data)
-        return self.mlink.positive_ack()
+        return self.mlink.positive_ack(MEM_DEVICE)
 
     def update_firmware(self, elf_file, offset=0):
         elf = elffile.ELFFile(open(elf_file, 'rb'))
