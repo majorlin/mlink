@@ -11,6 +11,6 @@ from mlink.nvm_cmds import NvmCmd
 from mlink.mlink import MLink
 
 if __name__ == '__main__':
-    mlink = MLink("/dev/ttyUSB0")
+    mlink = MLink("/dev/cu.usbserial-10", baudrate=2000000, dry=False)
     nvm = NvmCmd(mlink)
-    print(nvm.memory_read(0, 100))
+    nvm.update_firmware("YTKit.elf", offset=0x80000)

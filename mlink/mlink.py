@@ -20,12 +20,14 @@ CANB_DEVICE = b'\x03'
 LINA_DEVICE = b'\x04'
 LINB_DEVICE = b'\x05'
 POSITIVE_ACK = b'OK'
-TIMEOUT_COUNT = 1000
+TIMEOUT_COUNT = 2000
 
 
 class MLink(object):
-    def __init__(self, com_port, baudrate=115200):
-        self.ser = serial.Serial(com_port, baudrate, timeout=0.1)
+    def __init__(self, com_port, baudrate=115200, dry=False):
+        self.dry = dry
+        if not self.dry:
+            self.ser = serial.Serial(com_port, baudrate)
         self.buffer = b''
         self.frames = []
         self.timeout = 0
@@ -36,18 +38,23 @@ class MLink(object):
         chk = sum([x for x in data])
         chk = chk.to_bytes(2, 'little')
         frame = ML_HEADER + dl + data + chk + ML_TAIL
-        self.ser.write(frame)
+        if not self.dry:
+            self.ser.write(frame)
 
     def positive_ack(self):
+        if self.dry:
+            return True
         return POSITIVE_ACK == self.recv()
 
     def recv(self):
+        if self.dry:
+            return b'OK'
         while True:
             if len(self.frames) > 0:
                 return self.frames.pop(0)
             else:
                 self.search()
-                time.sleep(0.001)
+                time.sleep(0.01)
                 self.timeout += 1
                 if self.timeout > TIMEOUT_COUNT:
                     self.timeout = 0
